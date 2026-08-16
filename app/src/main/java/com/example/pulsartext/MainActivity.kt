@@ -89,7 +89,10 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        connectButton.setOnClickListener { requestPermissionsAndConnect() }
+        connectButton.setOnClickListener {
+    android.widget.Toast.makeText(this, "Button tapped!", android.widget.Toast.LENGTH_SHORT).show()
+    requestPermissionsAndConnect()
+}
 
         sendButton.setOnClickListener {
             val text = inputText.text.toString().trim()
