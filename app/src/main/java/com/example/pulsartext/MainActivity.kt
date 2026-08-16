@@ -5,6 +5,8 @@ import android.content.*
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -18,6 +20,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var inputText: EditText
+    private lateinit var charCountText: TextView
     private lateinit var connectButton: Button
     private lateinit var sendButton: Button
 
@@ -61,8 +64,21 @@ class MainActivity : AppCompatActivity() {
 
         statusText = findViewById(R.id.statusText)
         inputText = findViewById(R.id.inputText)
+        charCountText = findViewById(R.id.charCountText)
         connectButton = findViewById(R.id.connectButton)
         sendButton = findViewById(R.id.sendButton)
+
+        // Live "x/30" counter as the user types. The EditText already has
+        // android:maxLength="30" in the layout so this is just a visible
+        // reminder, not an extra enforcement layer.
+        updateCharCount(inputText.text?.length ?: 0)
+        inputText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateCharCount(s?.length ?: 0)
+            }
+        })
 
         connectButton.setOnClickListener { requestPermissionsAndConnect() }
 
@@ -74,6 +90,11 @@ class MainActivity : AppCompatActivity() {
             }
             service?.sendCustomText(text)
         }
+    }
+
+    private fun updateCharCount(length: Int) {
+        val max = BikeBluetoothService.MAX_MESSAGE_LENGTH
+        charCountText.text = "$length/$max"
     }
 
     private fun requestPermissionsAndConnect() {

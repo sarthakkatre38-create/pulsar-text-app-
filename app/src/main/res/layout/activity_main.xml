@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="24dp"
-    android:gravity="center">
+    android:gravity="top|center_horizontal">
 
     <TextView
         android:id="@+id/statusText"
@@ -14,14 +14,32 @@
         android:textSize="14sp"
         android:paddingBottom="16dp" />
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Made by a rider, for the riders"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:paddingBottom="24dp" />
+
     <EditText
         android:id="@+id/inputText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="HI"
-        android:maxLength="10"
-        android:inputType="textCapCharacters"
+        android:maxLength="30"
         android:textSize="24sp" />
+
+    <TextView
+        android:id="@+id/charCountText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="0/30"
+        android:textSize="12sp"
+        android:gravity="end"
+        android:paddingTop="4dp"
+        android:paddingBottom="12dp" />
 
     <Button
         android:id="@+id/connectButton"
@@ -37,5 +55,16 @@
         android:layout_marginTop="8dp"
         android:enabled="false"
         android:text="Send Text" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="bottom|center_horizontal"
+        android:paddingTop="24dp"
+        android:paddingBottom="8dp"
+        android:text="Made by Sarthak Katre"
+        android:textSize="12sp"
+        android:alpha="0.6" />
 
 </LinearLayout>
