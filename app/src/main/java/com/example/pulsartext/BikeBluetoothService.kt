@@ -91,24 +91,24 @@ class BikeBluetoothService : Service() {
     // ---- Public interface (same shape as before) ----
 
     /** Scans for the bike over BLE and connects once found. */
-    fun connect() {
-        if (!hasBtConnectPermission() || !hasBtScanPermission()) {
-            broadcastStatus("Missing Bluetooth permissions.")
-            return
-        }
-        val adapter = BluetoothAdapter.getDefaultAdapter()
-        if (adapter == null || !adapter.isEnabled) {
-            broadcastStatus("Bluetooth is off.")
-            return
-        }
-        scanner = adapter.bluetoothLeScanner
-        if (scanner == null) {
-            broadcastStatus("BLE scanning not supported on this device.")
-            return
-        }
-        startScan()
+   fun connect() {
+    android.widget.Toast.makeText(this, "connect() called", android.widget.Toast.LENGTH_LONG).show()
+    if (!hasBtConnectPermission() || !hasBtScanPermission()) {
+        broadcastStatus("Missing Bluetooth permissions.")
+        return
     }
-
+    val adapter = BluetoothAdapter.getDefaultAdapter()
+    if (adapter == null || !adapter.isEnabled) {
+        broadcastStatus("Bluetooth is off.")
+        return
+    }
+    scanner = adapter.bluetoothLeScanner
+    if (scanner == null) {
+        broadcastStatus("BLE scanning not supported on this device.")
+        return
+    }
+    startScan()
+}
     /**
      * Sets the text to display and (re)starts continuous sending.
      * Keeps the same method name/signature as the old SPP version so

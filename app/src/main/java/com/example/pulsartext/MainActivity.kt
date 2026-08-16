@@ -51,10 +51,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Request all needed runtime permissions in one go
-    private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val allGranted = results.values.all { it }
+   private val permissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestMultiplePermissions()
+) { results ->
+    android.widget.Toast.makeText(this, "Permission callback fired, granted=${results.values.all { it }}", android.widget.Toast.LENGTH_LONG).show()
+    val allGranted = results.values.all { it }
         if (allGranted) {
             if (bound) {
                 service?.connect()
