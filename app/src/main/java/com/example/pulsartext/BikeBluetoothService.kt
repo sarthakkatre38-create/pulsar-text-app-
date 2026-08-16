@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.*
 import java.nio.charset.StandardCharsets
 import java.util.*
+import android.bluetooth.le.BluetoothLeScanner
 
 /**
  * Foreground service that owns the BLE connection to the bike cluster.
