@@ -70,6 +70,28 @@ class BikeBluetoothService : Service() {
             broadcastStatus("Bluetooth is off.")
             return
         }
+
+        // The bike is already bonded/paired in system Bluetooth settings as
+        // "PULSAR3874" — try grabbing it directly instead of relying on a BLE
+        // scan, since a device's BLE advertisement name can differ from (or
+        // be absent compared to) its classic-Bluetooth paired name.
+        try {
+            val bonded = adapter.bondedDevices
+            val bikeDevice = bonded?.firstOrNull {
+                val n = it.name?.lowercase(Locale.ROOT) ?: ""
+                n.contains("pulsar") || n.contains("bajaj") || n.contains("ns160")
+            }
+            if (bikeDevice != null) {
+                broadcastStatus("Found paired device ${bikeDevice.name}, connecting...")
+                connectToDevice(bikeDevice)
+                return
+            }
+        } catch (e: SecurityException) {
+            broadcastStatus("Permission denied reading bonded devices: ${e.message}")
+            return
+        }
+
+        // Fallback: not found in bonded devices, try a BLE scan instead.
         scanner = adapter.bluetoothLeScanner
         if (scanner == null) {
             broadcastStatus("BLE scanning not supported on this device.")
