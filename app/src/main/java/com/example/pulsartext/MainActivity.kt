@@ -17,6 +17,7 @@ class MainActivity : AppCompatActivity() {
 
     private var service: BikeBluetoothService? = null
     private var bound = false
+    private var shouldConnectOnBind = false
 
     private lateinit var statusText: TextView
     private lateinit var inputText: EditText
@@ -37,6 +38,10 @@ class MainActivity : AppCompatActivity() {
             val localBinder = binder as BikeBluetoothService.LocalBinder
             service = localBinder.getService()
             bound = true
+            if (shouldConnectOnBind) {
+                shouldConnectOnBind = false
+                service?.connect()
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -51,8 +56,12 @@ class MainActivity : AppCompatActivity() {
     ) { results ->
         val allGranted = results.values.all { it }
         if (allGranted) {
-            startAndBindService()
-            service?.connect()
+            if (bound) {
+                service?.connect()
+            } else {
+                shouldConnectOnBind = true
+                startAndBindService()
+            }
         } else {
             statusText.text = "Bluetooth permissions are required to connect to the bike."
         }
