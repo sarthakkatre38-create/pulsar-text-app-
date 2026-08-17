@@ -1,7 +1,9 @@
 package com.example.pulsartext
 
 import android.Manifest
+import android.app.AlertDialog
 import android.content.*
+import android.content.ClipData
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
@@ -9,9 +11,14 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,12 +31,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var charCountText: TextView
     private lateinit var connectButton: Button
     private lateinit var sendButton: Button
+    private lateinit var selectDeviceButton: Button
+    private lateinit var selectedDeviceText: TextView
+    private lateinit var logText: TextView
+    private lateinit var logScrollView: ScrollView
+    private lateinit var copyLogButton: Button
+
+    private val logBuilder = StringBuilder()
+    private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val msg = intent?.getStringExtra(BikeBluetoothService.EXTRA_STATUS) ?: return
             statusText.text = msg
             sendButton.isEnabled = msg.startsWith("Connected")
+            appendLog(msg)
         }
     }
 
@@ -50,12 +66,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Request all needed runtime permissions in one go
-   private val permissionLauncher = registerForActivityResult(
-    ActivityResultContracts.RequestMultiplePermissions()
-) { results ->
-    android.widget.Toast.makeText(this, "Permission callback fired, granted=${results.values.all { it }}", android.widget.Toast.LENGTH_LONG).show()
-    val allGranted = results.values.all { it }
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val allGranted = results.values.all { it }
+        appendLog("Permission result: granted=$allGranted")
         if (allGranted) {
             if (bound) {
                 service?.connect()
@@ -65,6 +80,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             statusText.text = "Bluetooth permissions are required to connect to the bike."
+            appendLog("Permissions denied by user.")
         }
     }
 
@@ -77,10 +93,12 @@ class MainActivity : AppCompatActivity() {
         charCountText = findViewById(R.id.charCountText)
         connectButton = findViewById(R.id.connectButton)
         sendButton = findViewById(R.id.sendButton)
+        selectDeviceButton = findViewById(R.id.selectDeviceButton)
+        selectedDeviceText = findViewById(R.id.selectedDeviceText)
+        logText = findViewById(R.id.logText)
+        logScrollView = findViewById(R.id.logScrollView)
+        copyLogButton = findViewById(R.id.copyLogButton)
 
-        // Live "x/30" counter as the user types. The EditText already has
-        // android:maxLength="30" in the layout so this is just a visible
-        // reminder, not an extra enforcement layer.
         updateCharCount(inputText.text?.length ?: 0)
         inputText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -91,9 +109,9 @@ class MainActivity : AppCompatActivity() {
         })
 
         connectButton.setOnClickListener {
-    android.widget.Toast.makeText(this, "Button tapped!", android.widget.Toast.LENGTH_SHORT).show()
-    requestPermissionsAndConnect()
-}
+            appendLog("Connect button tapped")
+            requestPermissionsAndConnect()
+        }
 
         sendButton.setOnClickListener {
             val text = inputText.text.toString().trim()
@@ -101,8 +119,69 @@ class MainActivity : AppCompatActivity() {
                 statusText.text = "Type some text first."
                 return@setOnClickListener
             }
+            appendLog("Send tapped: \"$text\"")
             service?.sendCustomText(text)
         }
+
+        selectDeviceButton.setOnClickListener {
+            showDevicePicker()
+        }
+
+        copyLogButton.setOnClickListener {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Pulsar Text Log", logBuilder.toString())
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(this, "Log copied to clipboard", Toast.LENGTH_SHORT).show()
+        }
+
+        appendLog("App started.")
+
+        // Bind immediately (without connecting) so the device list is
+        // available for the picker even before you tap Connect.
+        startAndBindService()
+    }
+
+    private fun showDevicePicker() {
+        val svc = service
+        if (svc == null) {
+            appendLog("Service not bound yet — try again in a moment.")
+            return
+        }
+        val devices = svc.getBondedDeviceList()
+        if (devices.isEmpty()) {
+            appendLog("No bonded devices found. Pair the bike in system Bluetooth settings first.")
+            AlertDialog.Builder(this)
+                .setTitle("No paired devices")
+                .setMessage("No bonded Bluetooth devices found. Pair the bike in your phone's system Bluetooth settings first, then try again.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        // Each entry is "Name|Address" — split for display vs. the value we store.
+        val displayNames = devices.map { it.substringBefore("|") + "  (" + it.substringAfter("|") + ")" }.toTypedArray()
+        val addresses = devices.map { it.substringAfter("|") }
+
+        appendLog("Bonded devices found: ${devices.joinToString(", ")}")
+
+        AlertDialog.Builder(this)
+            .setTitle("Select the bike")
+            .setItems(displayNames) { _, which ->
+                val address = addresses[which]
+                val name = displayNames[which]
+                svc.setTargetDevice(address)
+                selectedDeviceText.text = "Selected: $name"
+                appendLog("Manually selected device: $name")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun appendLog(msg: String) {
+        val time = timeFormat.format(Date())
+        logBuilder.append("[$time] $msg\n")
+        logText.text = logBuilder.toString()
+        logScrollView.post { logScrollView.fullScroll(android.view.View.FOCUS_DOWN) }
     }
 
     private fun updateCharCount(length: Int) {

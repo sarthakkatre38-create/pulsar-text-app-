@@ -46,6 +46,25 @@ class BikeBluetoothService : Service() {
     private var isScanning = false
 
     private var customMessage: String = "HI"
+    private var targetDeviceAddress: String? = null
+
+    /** Returns "Name|Address" strings for every bonded device, for a manual picker UI. */
+    fun getBondedDeviceList(): List<String> {
+        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
+        return try {
+            adapter.bondedDevices?.map { device ->
+                "${device.name ?: "(no name)"}|${device.address}"
+            } ?: emptyList()
+        } catch (e: SecurityException) {
+            broadcastStatus("Permission denied listing bonded devices: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /** Lets the UI force a specific device by MAC address instead of name-matching. */
+    fun setTargetDevice(address: String) {
+        targetDeviceAddress = address
+    }
 
     inner class LocalBinder : android.os.Binder() {
         fun getService(): BikeBluetoothService = this@BikeBluetoothService
@@ -60,7 +79,6 @@ class BikeBluetoothService : Service() {
     }
 
     fun connect() {
-        android.widget.Toast.makeText(applicationContext, "connect() called", android.widget.Toast.LENGTH_LONG).show()
         if (!hasBtConnectPermission() || !hasBtScanPermission()) {
             broadcastStatus("Missing Bluetooth permissions.")
             return
@@ -69,6 +87,24 @@ class BikeBluetoothService : Service() {
         if (adapter == null || !adapter.isEnabled) {
             broadcastStatus("Bluetooth is off.")
             return
+        }
+
+        // If the user manually picked a device from the list, use that
+        // address directly instead of guessing by name.
+        val targetAddr = targetDeviceAddress
+        if (targetAddr != null) {
+            try {
+                val device = adapter.getRemoteDevice(targetAddr)
+                broadcastStatus("Connecting to selected device $targetAddr...")
+                connectToDevice(device)
+                return
+            } catch (e: IllegalArgumentException) {
+                broadcastStatus("Invalid device address: $targetAddr")
+                return
+            } catch (e: SecurityException) {
+                broadcastStatus("Permission denied connecting to $targetAddr: ${e.message}")
+                return
+            }
         }
 
         // The bike is already bonded/paired in system Bluetooth settings as
@@ -329,7 +365,6 @@ class BikeBluetoothService : Service() {
 
     private fun broadcastStatus(msg: String) {
         Log.d(TAG, msg)
-        android.widget.Toast.makeText(applicationContext, "STATUS: $msg", android.widget.Toast.LENGTH_LONG).show()
         val intent = Intent(ACTION_STATUS).putExtra(EXTRA_STATUS, msg)
         sendBroadcast(intent)
     }
