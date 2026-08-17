@@ -24,7 +24,9 @@ class MainActivity : AppCompatActivity() {
 
     private var service: BikeBluetoothService? = null
     private var bound = false
-    private var shouldConnectOnBind = false
+
+    // What to do once the service finishes binding: "connect", "picker", or null
+    private var pendingAction: String? = null
 
     private lateinit var statusText: TextView
     private lateinit var inputText: EditText
@@ -54,10 +56,12 @@ class MainActivity : AppCompatActivity() {
             val localBinder = binder as BikeBluetoothService.LocalBinder
             service = localBinder.getService()
             bound = true
-            if (shouldConnectOnBind) {
-                shouldConnectOnBind = false
-                service?.connect()
+            appendLog("Service bound.")
+            when (pendingAction) {
+                "connect" -> service?.connect()
+                "picker" -> showDevicePicker()
             }
+            pendingAction = null
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -73,14 +77,18 @@ class MainActivity : AppCompatActivity() {
         appendLog("Permission result: granted=$allGranted")
         if (allGranted) {
             if (bound) {
-                service?.connect()
+                when (pendingAction) {
+                    "connect" -> service?.connect()
+                    "picker" -> showDevicePicker()
+                }
+                pendingAction = null
             } else {
-                shouldConnectOnBind = true
                 startAndBindService()
             }
         } else {
-            statusText.text = "Bluetooth permissions are required to connect to the bike."
+            statusText.text = "Bluetooth permissions are required."
             appendLog("Permissions denied by user.")
+            pendingAction = null
         }
     }
 
@@ -110,7 +118,7 @@ class MainActivity : AppCompatActivity() {
 
         connectButton.setOnClickListener {
             appendLog("Connect button tapped")
-            requestPermissionsAndConnect()
+            runWithPermissions("connect")
         }
 
         sendButton.setOnClickListener {
@@ -124,7 +132,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         selectDeviceButton.setOnClickListener {
-            showDevicePicker()
+            appendLog("Select device button tapped")
+            runWithPermissions("picker")
         }
 
         copyLogButton.setOnClickListener {
@@ -135,10 +144,56 @@ class MainActivity : AppCompatActivity() {
         }
 
         appendLog("App started.")
+    }
 
-        // Bind immediately (without connecting) so the device list is
-        // available for the picker even before you tap Connect.
-        startAndBindService()
+    /**
+     * Requests Bluetooth permissions (if not already granted), binds/starts
+     * the service (if not already bound), and then performs the requested
+     * action once both are ready. This avoids ever starting the foreground
+     * BLE service before permissions are actually granted, which crashes on
+     * Android 14+ for a "connectedDevice" foreground service type.
+     */
+    private fun runWithPermissions(action: String) {
+        if (!hasAllBtPermissions()) {
+            pendingAction = action
+            requestPermissions()
+            return
+        }
+        if (!bound) {
+            pendingAction = action
+            startAndBindService()
+            return
+        }
+        when (action) {
+            "connect" -> service?.connect()
+            "picker" -> showDevicePicker()
+        }
+    }
+
+    private fun hasAllBtPermissions(): Boolean {
+        val needed = requiredPermissions()
+        return needed.all {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, it) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requiredPermissions(): List<String> {
+        val needed = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            needed += Manifest.permission.BLUETOOTH_CONNECT
+            needed += Manifest.permission.BLUETOOTH_SCAN
+        } else {
+            needed += Manifest.permission.ACCESS_FINE_LOCATION
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            needed += Manifest.permission.POST_NOTIFICATIONS
+        }
+        return needed
+    }
+
+    private fun requestPermissions() {
+        permissionLauncher.launch(requiredPermissions().toTypedArray())
     }
 
     private fun showDevicePicker() {
@@ -158,7 +213,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Each entry is "Name|Address" — split for display vs. the value we store.
         val displayNames = devices.map { it.substringBefore("|") + "  (" + it.substringAfter("|") + ")" }.toTypedArray()
         val addresses = devices.map { it.substringAfter("|") }
 
@@ -187,20 +241,6 @@ class MainActivity : AppCompatActivity() {
     private fun updateCharCount(length: Int) {
         val max = BikeBluetoothService.MAX_MESSAGE_LENGTH
         charCountText.text = "$length/$max"
-    }
-
-    private fun requestPermissionsAndConnect() {
-        val needed = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            needed += Manifest.permission.BLUETOOTH_CONNECT
-            needed += Manifest.permission.BLUETOOTH_SCAN
-        } else {
-            needed += Manifest.permission.ACCESS_FINE_LOCATION
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            needed += Manifest.permission.POST_NOTIFICATIONS
-        }
-        permissionLauncher.launch(needed.toTypedArray())
     }
 
     private fun startAndBindService() {
