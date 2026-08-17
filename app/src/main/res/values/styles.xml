@@ -11,19 +11,21 @@
 
     <style name="PulsarButton" parent="Widget.AppCompat.Button">
         <item name="android:background">@drawable/button_bg</item>
-        <item name="android:textColor">@color/bg_dark</item>
+        <item name="android:textColor">#0A0A0F</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:paddingTop">14dp</item>
-        <item name="android:paddingBottom">14dp</item>
-        <item name="android:letterSpacing">0.05</item>
+        <item name="android:paddingTop">15dp</item>
+        <item name="android:paddingBottom">15dp</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 
     <style name="PulsarButtonOutline" parent="Widget.AppCompat.Button">
         <item name="android:background">@drawable/button_outline_bg</item>
         <item name="android:textColor">@color/accent_cyan</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:paddingTop">14dp</item>
-        <item name="android:paddingBottom">14dp</item>
-        <item name="android:letterSpacing">0.05</item>
+        <item name="android:paddingTop">15dp</item>
+        <item name="android:paddingBottom">15dp</item>
+        <item name="android:letterSpacing">0.03</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 </resources>
