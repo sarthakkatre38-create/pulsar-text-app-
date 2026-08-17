@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
             service = localBinder.getService()
             bound = true
             appendLog("Service bound.")
+            syncStatusFromService()
             when (pendingAction) {
                 "connect" -> service?.connect()
                 "picker" -> showDevicePicker()
@@ -297,6 +298,20 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Pulls the real current state directly from the service, instead of
+     * relying only on broadcasts (which can be missed while the app is
+     * briefly backgrounded, e.g. during the permission popup). Call this
+     * whenever the app becomes visible or (re)binds to the service.
+     */
+    private fun syncStatusFromService() {
+        val svc = service ?: return
+        val status = svc.getLastStatus()
+        statusText.text = status
+        sendButton.isEnabled = svc.isCurrentlyConnected()
+        appendLog("Synced status from service: $status")
+    }
+
     private fun appendLog(msg: String) {
         val time = timeFormat.format(Date())
         logBuilder.append("[$time] $msg\n")
@@ -323,6 +338,9 @@ class MainActivity : AppCompatActivity() {
                 IntentFilter(BikeBluetoothService.ACTION_STATUS),
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
             )
+            // Catch up on any status change that happened while we were
+            // backgrounded and the receiver above was unregistered.
+            if (bound) syncStatusFromService()
         } catch (t: Throwable) {
             // If setupUi() itself failed, statusReceiver/etc may already be
             // in a broken state — the crash screen from onCreate is enough.

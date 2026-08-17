@@ -48,6 +48,13 @@ class BikeBluetoothService : Service() {
     private var customMessage: String = "HI"
     private var targetDeviceAddress: String? = null
 
+    // Tracked so the UI can pull the real current state on demand, instead of
+    // only reacting to broadcasts that can be missed while the app is briefly
+    // backgrounded (e.g. during the permission popup).
+    @Volatile private var lastStatus: String = "Not connected"
+    fun getLastStatus(): String = lastStatus
+    fun isCurrentlyConnected(): Boolean = isMtuIncreased
+
     /** Returns "Name|Address" strings for every bonded device, for a manual picker UI. */
     fun getBondedDeviceList(): List<String> {
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
@@ -261,7 +268,10 @@ class BikeBluetoothService : Service() {
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             isMtuIncreased = true
             broadcastStatus("Connected: $mtu")
-            startContinuousDisplay()
+            // Note: we deliberately do NOT auto-start the write loop here.
+            // It should only start once the user explicitly taps Send —
+            // otherwise whatever customMessage happens to be set (default
+            // "HI") gets pushed to the bike immediately on every connect.
         }
 
         override fun onCharacteristicWrite(
@@ -365,6 +375,7 @@ class BikeBluetoothService : Service() {
 
     private fun broadcastStatus(msg: String) {
         Log.d(TAG, msg)
+        lastStatus = msg
         val intent = Intent(ACTION_STATUS).putExtra(EXTRA_STATUS, msg)
         sendBroadcast(intent)
     }
