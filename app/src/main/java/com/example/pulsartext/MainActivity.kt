@@ -11,6 +11,8 @@ import android.os.IBinder
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -32,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private var pendingAction: String? = null
 
     private lateinit var statusText: TextView
+    private lateinit var statusDot: View
+    private lateinit var statusDotPulse: View
     private lateinit var inputText: EditText
     private lateinit var charCountText: TextView
     private lateinit var connectButton: Button
@@ -48,9 +52,28 @@ class MainActivity : AppCompatActivity() {
     private val statusReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val msg = intent?.getStringExtra(BikeBluetoothService.EXTRA_STATUS) ?: return
-            statusText.text = msg
-            sendButton.isEnabled = msg.startsWith("Connected")
+            updateStatusUi(msg, msg.startsWith("Connected"))
             appendLog(msg)
+        }
+    }
+
+    /** Updates the status text, the colored dot, and starts/stops its pulse animation. */
+    private fun updateStatusUi(message: String, connected: Boolean) {
+        statusText.text = message
+        sendButton.isEnabled = connected
+        val color = if (connected) {
+            android.graphics.Color.parseColor("#00E5C7")
+        } else {
+            android.graphics.Color.parseColor("#7A8A94")
+        }
+        statusDot.background.setTint(color)
+        statusDotPulse.background.setTint(color)
+        if (connected) {
+            if (statusDotPulse.animation == null) {
+                statusDotPulse.startAnimation(AnimationUtils.loadAnimation(this, R.anim.pulse))
+            }
+        } else {
+            statusDotPulse.clearAnimation()
         }
     }
 
@@ -110,6 +133,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
+        statusDot = findViewById(R.id.statusDot)
+        statusDotPulse = findViewById(R.id.statusDotPulse)
         inputText = findViewById(R.id.inputText)
         charCountText = findViewById(R.id.charCountText)
         connectButton = findViewById(R.id.connectButton)
@@ -307,8 +332,7 @@ class MainActivity : AppCompatActivity() {
     private fun syncStatusFromService() {
         val svc = service ?: return
         val status = svc.getLastStatus()
-        statusText.text = status
-        sendButton.isEnabled = svc.isCurrentlyConnected()
+        updateStatusUi(status, svc.isCurrentlyConnected())
         appendLog("Synced status from service: $status")
     }
 

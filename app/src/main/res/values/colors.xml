@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0B0F14</color>
+    <color name="surface_dark">#131A21</color>
+    <color name="surface_dark_lighter">#1C2530</color>
+    <color name="accent_cyan">#00E5C7</color>
+    <color name="accent_cyan_dim">#0A3D38</color>
+    <color name="text_primary">#E8F1F2</color>
+    <color name="text_secondary">#7A8A94</color>
+    <color name="status_connected">#00E5C7</color>
+    <color name="status_error">#FF5C5C</color>
+    <color name="status_neutral">#7A8A94</color>
+    <color name="border_subtle">#26323C</color>
+</resources>

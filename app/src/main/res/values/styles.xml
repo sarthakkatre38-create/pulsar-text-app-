@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.PulsarText" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="colorPrimary">@color/accent_cyan</item>
+        <item name="colorPrimaryDark">@color/bg_dark</item>
+        <item name="colorAccent">@color/accent_cyan</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+    <style name="PulsarButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_bg</item>
+        <item name="android:textColor">@color/bg_dark</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="PulsarButtonOutline" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_outline_bg</item>
+        <item name="android:textColor">@color/accent_cyan</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+</resources>
