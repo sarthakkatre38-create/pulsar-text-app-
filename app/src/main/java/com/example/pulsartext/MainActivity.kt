@@ -4,18 +4,23 @@ import android.Manifest
 import android.app.AlertDialog
 import android.content.*
 import android.content.ClipData
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -24,8 +29,6 @@ class MainActivity : AppCompatActivity() {
 
     private var service: BikeBluetoothService? = null
     private var bound = false
-
-    // What to do once the service finishes binding: "connect", "picker", or null
     private var pendingAction: String? = null
 
     private lateinit var statusText: TextView
@@ -94,6 +97,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            setupUi()
+        } catch (t: Throwable) {
+            showCrashScreen(t)
+        }
+    }
+
+    /** All the normal startup logic, isolated so we can catch anything that throws. */
+    private fun setupUi() {
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
@@ -117,23 +129,35 @@ class MainActivity : AppCompatActivity() {
         })
 
         connectButton.setOnClickListener {
-            appendLog("Connect button tapped")
-            runWithPermissions("connect")
+            try {
+                appendLog("Connect button tapped")
+                runWithPermissions("connect")
+            } catch (t: Throwable) {
+                showCrashScreen(t)
+            }
         }
 
         sendButton.setOnClickListener {
-            val text = inputText.text.toString().trim()
-            if (text.isEmpty()) {
-                statusText.text = "Type some text first."
-                return@setOnClickListener
+            try {
+                val text = inputText.text.toString().trim()
+                if (text.isEmpty()) {
+                    statusText.text = "Type some text first."
+                    return@setOnClickListener
+                }
+                appendLog("Send tapped: \"$text\"")
+                service?.sendCustomText(text)
+            } catch (t: Throwable) {
+                showCrashScreen(t)
             }
-            appendLog("Send tapped: \"$text\"")
-            service?.sendCustomText(text)
         }
 
         selectDeviceButton.setOnClickListener {
-            appendLog("Select device button tapped")
-            runWithPermissions("picker")
+            try {
+                appendLog("Select device button tapped")
+                runWithPermissions("picker")
+            } catch (t: Throwable) {
+                showCrashScreen(t)
+            }
         }
 
         copyLogButton.setOnClickListener {
@@ -147,12 +171,54 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Requests Bluetooth permissions (if not already granted), binds/starts
-     * the service (if not already bound), and then performs the requested
-     * action once both are ready. This avoids ever starting the foreground
-     * BLE service before permissions are actually granted, which crashes on
-     * Android 14+ for a "connectedDevice" foreground service type.
+     * Replaces the whole screen with a plain error view showing the full
+     * exception, plus a Copy button. Used any time something throws instead
+     * of letting the app crash with no information.
      */
+    private fun showCrashScreen(t: Throwable) {
+        val sw = StringWriter()
+        t.printStackTrace(PrintWriter(sw))
+        val trace = sw.toString()
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 32, 32, 32)
+        }
+
+        val title = TextView(this).apply {
+            text = "Something crashed"
+            textSize = 18f
+            setPadding(0, 0, 0, 16)
+        }
+
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+            )
+        }
+        val traceView = TextView(this).apply {
+            text = trace
+            textSize = 11f
+            setTextColor(Color.parseColor("#B00020"))
+        }
+        scroll.addView(traceView)
+
+        val copyBtn = Button(this).apply {
+            text = "Copy error"
+            setOnClickListener {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("Crash", trace)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(this@MainActivity, "Copied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        root.addView(title)
+        root.addView(scroll)
+        root.addView(copyBtn)
+        setContentView(root)
+    }
+
     private fun runWithPermissions(action: String) {
         if (!hasAllBtPermissions()) {
             pendingAction = action
@@ -251,22 +317,33 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        registerReceiver(
-            statusReceiver,
-            IntentFilter(BikeBluetoothService.ACTION_STATUS),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
-        )
+        try {
+            registerReceiver(
+                statusReceiver,
+                IntentFilter(BikeBluetoothService.ACTION_STATUS),
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
+            )
+        } catch (t: Throwable) {
+            // If setupUi() itself failed, statusReceiver/etc may already be
+            // in a broken state — the crash screen from onCreate is enough.
+        }
     }
 
     override fun onStop() {
         super.onStop()
-        unregisterReceiver(statusReceiver)
+        try {
+            unregisterReceiver(statusReceiver)
+        } catch (t: Throwable) {
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         if (bound) {
-            unbindService(serviceConnection)
+            try {
+                unbindService(serviceConnection)
+            } catch (t: Throwable) {
+            }
             bound = false
         }
     }
