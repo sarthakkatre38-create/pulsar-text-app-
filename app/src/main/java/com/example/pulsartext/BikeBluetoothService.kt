@@ -313,9 +313,26 @@ class BikeBluetoothService : Service() {
     private fun startContinuousDisplay() {
         repeatJob?.cancel()
         repeatJob = scope.launch {
+            var elapsedMs = 0L
+            // Refresh a little before the bike's ~60s auto-dismiss kicks in,
+            // by briefly toggling to "no call" and straight back to
+            // "incoming call" — this mimics ending one call and starting a
+            // fresh one, resetting the bike's internal ring timer so the
+            // text keeps showing indefinitely instead of disappearing.
+            val refreshEveryMs = 55_000L
+
             while (isActive) {
-                writeStatusFrame()
+                if (elapsedMs >= refreshEveryMs) {
+                    broadcastStatus("Refreshing display (avoiding 60s timeout)...")
+                    writeStatusFrame(forceCallState = 0)
+                    delay(300L)
+                    writeStatusFrame(forceCallState = 1)
+                    elapsedMs = 0L
+                } else {
+                    writeStatusFrame()
+                }
                 delay(WRITE_INTERVAL_MS)
+                elapsedMs += WRITE_INTERVAL_MS
             }
         }
     }
@@ -325,14 +342,14 @@ class BikeBluetoothService : Service() {
         repeatJob = null
     }
 
-    private fun writeStatusFrame() {
+    private fun writeStatusFrame(forceCallState: Int? = null) {
         val gatt = bluetoothGatt ?: return
         val characteristic = generalChar ?: return
         if (!isMtuIncreased) return
         if (!hasBtConnectPermission()) return
 
         characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-        characteristic.value = buildPhoneStatusFrame(customMessage)
+        characteristic.value = buildPhoneStatusFrame(customMessage, forceCallState)
         try {
             gatt.writeCharacteristic(characteristic)
         } catch (e: SecurityException) {
@@ -340,7 +357,7 @@ class BikeBluetoothService : Service() {
         }
     }
 
-    private fun buildPhoneStatusFrame(message: String): ByteArray {
+    private fun buildPhoneStatusFrame(message: String, forceCallState: Int? = null): ByteArray {
         heartbeat++
         val frame = ByteArray(55)
 
@@ -348,7 +365,7 @@ class BikeBluetoothService : Service() {
         val isHeadsetConnected = false
         frame[0] = (((if (isHeadsetConnected) 1 else 0) shl 4) or currentVolume or 0xC0).toByte()
 
-        val callStateIncoming = callState
+        val callStateIncoming = forceCallState ?: callState
         val batteryPercentage = 4
         frame[1] = (callStateIncoming or (batteryPercentage shl 3)).toByte()
 
