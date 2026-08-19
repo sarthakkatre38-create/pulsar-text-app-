@@ -45,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var logText: TextView
     private lateinit var logScrollView: ScrollView
     private lateinit var copyLogButton: Button
+    private lateinit var callStateValueText: TextView
 
     private val logBuilder = StringBuilder()
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
@@ -144,6 +145,13 @@ class MainActivity : AppCompatActivity() {
         logText = findViewById(R.id.logText)
         logScrollView = findViewById(R.id.logScrollView)
         copyLogButton = findViewById(R.id.copyLogButton)
+
+        // --- Experimental: live "notification state" tester ---
+        // Added so we can try different byte values for the call-state field
+        // without rebuilding the app each time. Once we find the value that
+        // shows text without the incoming-call UI, this can be removed and
+        // the value hardcoded back into the service.
+        setupCallStateTester()
 
         updateCharCount(inputText.text?.length ?: 0)
         inputText.addTextChangedListener(object : TextWatcher {
@@ -334,6 +342,70 @@ class MainActivity : AppCompatActivity() {
         val status = svc.getLastStatus()
         updateStatusUi(status, svc.isCurrentlyConnected())
         appendLog("Synced status from service: $status")
+    }
+
+    /**
+     * Adds a small floating +/- control (built in code, no layout changes
+     * needed) so we can try different notification "call state" byte values
+     * live on the bike, instantly, without rebuilding the app each time.
+     * Tap Send first to start the write loop, then use +/- to cycle values
+     * and watch the cluster for a change in behavior.
+     */
+    private fun setupCallStateTester() {
+        val root = findViewById<LinearLayout>(android.R.id.content).let {
+            // content is a FrameLayout; find the actual root LinearLayout inside the ScrollView
+            (it.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
+        } ?: return
+
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 24, 0, 24)
+        }
+
+        val label = TextView(this).apply {
+            text = "Test notify state:"
+            setTextColor(Color.parseColor("#7A8A94"))
+            textSize = 12f
+        }
+
+        val minusBtn = Button(this).apply {
+            text = "-"
+            setOnClickListener {
+                val svc = service ?: return@setOnClickListener
+                val newVal = (svc.getCallState() - 1).coerceAtLeast(0)
+                svc.setCallState(newVal)
+                callStateValueText.text = newVal.toString()
+                appendLog("Testing call state: $newVal")
+            }
+        }
+
+        callStateValueText = TextView(this).apply {
+            text = "1"
+            setTextColor(Color.parseColor("#F2F2F5"))
+            textSize = 16f
+            setPadding(24, 0, 24, 0)
+        }
+
+        val plusBtn = Button(this).apply {
+            text = "+"
+            setOnClickListener {
+                val svc = service ?: return@setOnClickListener
+                val newVal = (svc.getCallState() + 1).coerceAtMost(7)
+                svc.setCallState(newVal)
+                callStateValueText.text = newVal.toString()
+                appendLog("Testing call state: $newVal")
+            }
+        }
+
+        row.addView(label)
+        row.addView(minusBtn)
+        row.addView(callStateValueText)
+        row.addView(plusBtn)
+
+        // Insert this row right after the send button for visibility
+        val sendIndex = root.indexOfChild(sendButton)
+        root.addView(row, sendIndex + 1)
     }
 
     private fun appendLog(msg: String) {

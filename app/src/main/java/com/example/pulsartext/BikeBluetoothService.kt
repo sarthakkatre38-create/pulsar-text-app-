@@ -48,6 +48,16 @@ class BikeBluetoothService : Service() {
     private var customMessage: String = "HI"
     private var targetDeviceAddress: String? = null
 
+    // Exposed so the UI can experiment with different notification "states"
+    // live, without rebuilding the app each time. 1 = incoming call (known
+    // working, but shows ringing UI + times out). Other values are untested —
+    // we're looking for one that displays the text without the call treatment.
+    @Volatile private var callState: Int = 1
+    fun setCallState(value: Int) {
+        callState = value
+    }
+    fun getCallState(): Int = callState
+
     // Tracked so the UI can pull the real current state on demand, instead of
     // only reacting to broadcasts that can be missed while the app is briefly
     // backgrounded (e.g. during the permission popup).
@@ -338,7 +348,7 @@ class BikeBluetoothService : Service() {
         val isHeadsetConnected = false
         frame[0] = (((if (isHeadsetConnected) 1 else 0) shl 4) or currentVolume or 0xC0).toByte()
 
-        val callStateIncoming = 1
+        val callStateIncoming = callState
         val batteryPercentage = 4
         frame[1] = (callStateIncoming or (batteryPercentage shl 3)).toByte()
 
