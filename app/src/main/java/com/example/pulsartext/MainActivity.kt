@@ -352,10 +352,10 @@ class MainActivity : AppCompatActivity() {
      * and watch the cluster for a change in behavior.
      */
     private fun setupCallStateTester() {
-        val root = findViewById<LinearLayout>(android.R.id.content).let {
-            // content is a FrameLayout; find the actual root LinearLayout inside the ScrollView
-            (it.getChildAt(0) as? ScrollView)?.getChildAt(0) as? LinearLayout
-        } ?: return
+        val root = sendButton.parent as? LinearLayout ?: run {
+            appendLog("Could not attach call-state tester: unexpected parent type")
+            return
+        }
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
